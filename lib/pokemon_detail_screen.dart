@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:pokemon_screen/pokemon_model.dart';
 
