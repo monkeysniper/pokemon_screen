@@ -1,50 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'character_bloc.dart';
+import 'character_repository.dart';
+import 'character_model.dart';
 
-class HPCharacter {
-  final String name;
-  final String house;
-  final String imageUrl;
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  Hive.registerAdapter(HPCharacterAdapter());
+  await Hive.openBox<HPCharacter>('characters');
 
-  const HPCharacter({
-    required this.name,
-    required this.house,
-    required this.imageUrl,
-  });
-
-  factory HPCharacter.fromJson(Map<String, dynamic> json) {
-    return HPCharacter(
-      name: json['name'] ?? 'Unknown Name',
-      house: json['house'] ?? 'No House',
-      imageUrl: json['image'] ?? '',
-    );
-  }
-}
-
-class CharacterRepository {
-  final Dio _dio = Dio();
-  final String _url = 'https://hp-api.onrender.com/api/characters';
-
-  Future<List<HPCharacter>> getCharacters() async {
-    try {
-      final response = await _dio.get(_url);
-      final List<dynamic> data = response.data;
-      return data
-          .map((json) => HPCharacter.fromJson(json))
-          .where((character) => character.imageUrl.isNotEmpty)
-          .toList();
-    } catch (error) {
-      throw Exception('Failed to load characters: $error');
-    }
-  }
-}
-
-void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final CharacterRepository characterRepository = CharacterRepository();
+
+  MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -60,29 +33,17 @@ class MyApp extends StatelessWidget {
           titleTextStyle: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
-      home: CharacterListScreen(),
+      home: BlocProvider(
+        create: (context) => CharacterBloc(repository: characterRepository)..add(FetchCharacters()),
+        child: const CharacterListScreen(),
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class CharacterListScreen extends StatefulWidget {
-  CharacterListScreen({super.key});
-
-  final CharacterRepository _repository = CharacterRepository();
-
-  @override
-  State<CharacterListScreen> createState() => _CharacterListScreenState();
-}
-
-class _CharacterListScreenState extends State<CharacterListScreen> {
-  late Future<List<HPCharacter>> _charactersFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _charactersFuture = widget._repository.getCharacters();
-  }
+class CharacterListScreen extends StatelessWidget {
+  const CharacterListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -90,27 +51,24 @@ class _CharacterListScreenState extends State<CharacterListScreen> {
       appBar: AppBar(
         title: const Text('Characters'),
       ),
-      body: FutureBuilder<List<HPCharacter>>(
-        future: _charactersFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<CharacterBloc, CharacterState>(
+        builder: (context, state) {
+          if (state is CharacterLoading || state is CharacterInitial) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+          if (state is CharacterError) {
+            return Center(child: Text('Error: ${state.message}'));
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No characters found.'));
+          if (state is CharacterLoaded) {
+            return ListView.separated(
+              itemCount: state.characters.length,
+              separatorBuilder: (context, index) => const Divider(height: 1, indent: 82, endIndent: 16),
+              itemBuilder: (context, index) {
+                return CharacterCard(character: state.characters[index]);
+              },
+            );
           }
-
-          final characters = snapshot.data!;
-          return ListView.separated(
-            itemCount: characters.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, indent: 82, endIndent: 16),
-            itemBuilder: (context, index) {
-              return CharacterCard(character: characters[index]);
-            },
-          );
+          return const Center(child: Text('Something went wrong!'));
         },
       ),
     );
