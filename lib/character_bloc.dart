@@ -46,7 +46,7 @@ class CharacterBloc extends Bloc<CharacterEvent, CharacterState> {
           emit(CharacterLoaded(cachedCharacters));
         }
       } catch (e) {
-
+        // Log error or ignore if caching isn't critical
       }
 
       try {

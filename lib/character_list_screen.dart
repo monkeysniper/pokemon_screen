@@ -8,28 +8,28 @@ class CharacterListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<HPCharacter> characters = [
-       const HPCharacter(
+       HPCharacter(
         name: 'Harry Potter',
         house: 'Gryffindor',
         imageUrl: 'https://hp-api.herokuapp.com/images/harry.jpg',
         description: 'The boy who lived.',
-        wand: '11\" Holly, phoenix feather core',
+        wand: '11" Holly, phoenix feather core',
         patronus: 'Stag',
       ),
-      const HPCharacter(
+      HPCharacter(
         name: 'Hermione Granger',
         house: 'Gryffindor',
         imageUrl: 'https://hp-api.herokuapp.com/images/hermione.jpeg',
         description: 'The brightest witch of her age.',
-        wand: '10¾\" vine wood, dragon heartstring core',
+        wand: '10¾" vine wood, dragon heartstring core',
         patronus: 'Otter',
       ),
-      const HPCharacter(
+      HPCharacter(
         name: 'Ron Weasley',
         house: 'Gryffindor',
         imageUrl: 'https://hp-api.herokuapp.com/images/ron.jpg',
         description: 'King of our hearts.',
-        wand: '14\" Willow, unicorn tail hair core',
+        wand: '14" Willow, unicorn tail hair core',
         patronus: 'Jack Russell terrier',
       ),
     ];
