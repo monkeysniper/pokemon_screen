@@ -1,11 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:chewie/chewie.dart';
-import 'package:video_player/video_player.dart';
-import 'video_cubit.dart';
-import 'video_repository.dart';
-import 'video_model.dart';
+import 'rick_and_morty_cubit.dart';
+import 'rick_and_morty_repository.dart';
+import 'rick_and_morty_model.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,23 +14,27 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Rick and Morty Pagination',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
       home: BlocProvider(
-        create: (context) => VideoCubit(VideoRepository())..fetchVideos(),
-        child: const VideoListScreen(),
+        create: (context) => RMCubit(RickAndMortyRepository())..fetchCharacters(),
+        child: const CharacterListScreen(),
       ),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class VideoListScreen extends StatefulWidget {
-  const VideoListScreen({super.key});
+class CharacterListScreen extends StatefulWidget {
+  const CharacterListScreen({super.key});
 
   @override
-  State<VideoListScreen> createState() => _VideoListScreenState();
+  State<CharacterListScreen> createState() => _CharacterListScreenState();
 }
 
-class _VideoListScreenState extends State<VideoListScreen> {
+class _CharacterListScreenState extends State<CharacterListScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -43,106 +44,66 @@ class _VideoListScreenState extends State<VideoListScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      context.read<VideoCubit>().fetchVideos();
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+      context.read<RMCubit>().fetchCharacters();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mini TikTok')),
-      body: BlocBuilder<VideoCubit, VideoState>(
+      appBar: AppBar(
+        title: const Text('Rick and Morty Characters'),
+      ),
+      body: BlocBuilder<RMCubit, RMState>(
         builder: (context, state) {
-          if (state is VideoInitial || (state is VideoLoading && _isFirstLoad(state))) {
+          if (state is RMInitial || (state is RMLoading && state.isFirstFetch)) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (state is VideoError) {
-            return const Center(child: Text('Error loading videos'));
+
+          List<RMCharacter> characters = [];
+          bool isLoading = false;
+          bool hasReachedMax = false;
+
+          if (state is RMLoading) {
+            characters = state.oldResults;
+            isLoading = true;
+          } else if (state is RMLoaded) {
+            characters = state.results;
+            hasReachedMax = state.hasReachedMax;
+          } else if (state is RMError) {
+            return const Center(child: Text('Error loading characters'));
           }
-          if (state is VideoLoaded) {
-            return ListView.builder(
-              controller: _scrollController,
-              itemCount: state.videos.length + (state.hasReachedMax ? 0 : 1),
-              itemBuilder: (context, index) {
-                if (index >= state.videos.length) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                return VideoItem(video: state.videos[index]);
-              },
-            );
-          }
-          return const SizedBox();
+
+          return ListView.builder(
+            controller: _scrollController,
+            itemCount: characters.length + (hasReachedMax ? 0 : 1),
+            itemBuilder: (context, index) {
+              if (index < characters.length) {
+                final character = characters[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(character.image),
+                  ),
+                  title: Text(character.name),
+                  subtitle: Text('${character.species} - ${character.status}'),
+                );
+              } else {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+            },
+          );
         },
       ),
     );
   }
 
-  bool _isFirstLoad(VideoState state) {
-    return state is VideoLoading && (context.read<VideoCubit>().state is! VideoLoaded);
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
-    super.dispose();
-  }
-}
-
-class VideoItem extends StatefulWidget {
-  final VideoModel video;
-  const VideoItem({super.key, required this.video});
-
-  @override
-  State<VideoItem> createState() => _VideoItemState();
-}
-
-class _VideoItemState extends State<VideoItem> {
-  late VideoPlayerController _videoPlayerController;
-  ChewieController? _chewieController;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  Future<void> _initPlayer() async {
-    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.video.url));
-    await _videoPlayerController.initialize();
-    _chewieController = ChewieController(
-      videoPlayerController: _videoPlayerController,
-      autoPlay: false,
-      looping: true,
-      aspectRatio: _videoPlayerController.value.aspectRatio,
-    );
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: _chewieController != null
-              ? Chewie(controller: _chewieController!)
-              : const Center(child: CircularProgressIndicator()),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text('By: ${widget.video.user}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        const Divider(),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _videoPlayerController.dispose();
-    _chewieController?.dispose();
     super.dispose();
   }
 }

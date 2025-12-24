@@ -4,7 +4,11 @@ import 'video_repository.dart';
 
 abstract class VideoState {}
 class VideoInitial extends VideoState {}
-class VideoLoading extends VideoState {}
+class VideoLoading extends VideoState {
+  final List<VideoModel> oldVideos;
+  final bool isFirstFetch;
+  VideoLoading(this.oldVideos, {this.isFirstFetch = false});
+}
 class VideoLoaded extends VideoState {
   final List<VideoModel> videos;
   final bool hasReachedMax;
@@ -24,15 +28,17 @@ class VideoCubit extends Cubit<VideoState> {
     final currentState = state;
     List<VideoModel> oldVideos = [];
     if (currentState is VideoLoaded) {
+      if (currentState.hasReachedMax) return;
       oldVideos = currentState.videos;
     }
 
-    emit(VideoLoading());
+    emit(VideoLoading(oldVideos, isFirstFetch: _currentPage == 1));
 
     try {
       final newVideos = await repository.getVideos(_currentPage);
       _currentPage++;
-      emit(VideoLoaded(oldVideos + newVideos, hasReachedMax: newVideos.isEmpty));
+      final allVideos = oldVideos + newVideos;
+      emit(VideoLoaded(allVideos, hasReachedMax: newVideos.isEmpty));
     } catch (e) {
       emit(VideoError());
     }
